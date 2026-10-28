@@ -2438,6 +2438,7 @@ void App::DrawProductSettings()
 
     ImGui::SeparatorText(Tr("О программе"));
     ImGui::Text("%s %s", kAppName, kAppVersion);
+    ImGui::TextWrapped("%s", Tr("GuVi пишет игру, окно или весь экран, с микрофоном и веб-камерой, через NVENC. Четыре языка. Обрыв питания не стирает дубль."));
     ImGui::Text("%s", Tr("Автор: Gubke"));
     ImGui::Text("%s", Tr("Создано 28.10.26"));
     ImGui::Text("%s", Tr("Создано вместе с Cursor"));
@@ -2445,6 +2446,9 @@ void App::DrawProductSettings()
         if (ImGui::Button(label))
             ShellExecuteW(nullptr, L"open", url, nullptr, nullptr, SW_SHOWNORMAL);
     };
+    link(Tr("Портативная сборка"), L"https://github.com/Gubke/guvi/releases/download/v1.0.0/GuVi-1.0.0-portable.zip");
+    ImGui::SameLine();
+    link(Tr("Установщик"), L"https://github.com/Gubke/guvi/releases/download/v1.0.0/GuVi-Setup.exe");
     link(Tr("YouTube"), L"https://www.youtube.com/@gubke");
     ImGui::SameLine();
     link(Tr("Telegram"), L"https://t.me/negubke");
