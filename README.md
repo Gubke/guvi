@@ -2,11 +2,13 @@
 
 ![GuVi](logo3.png)
 
-GuVi is a Windows screen recorder. It records a game, one window, or the whole display, with system audio, a microphone, and a webcam. Video stays on the GPU and is encoded with NVENC when an NVIDIA card is present, or with AMD AMF or Intel Quick Sync. The window follows Windows, or you can pick Russian, Ukrainian, English, or Polish.
+GuVi is a free, open-source, unique Windows recorder and streamer. It captures a game, a window, or the whole display, streams over RTMP, and keeps an instant replay. A webcam and a mic sit in the take, and draggable widgets go on the stream. Encoding uses NVIDIA, AMD, or Intel hardware. The interface is English, Ukrainian, Polish, or Russian.
 
-A take is written as a fragmented MP4, so a power loss does not throw the recording away. The next launch repairs the file, keeps it as `guvi_YYYYMMDD_N.mp4`, and tells you the video was restored.
+Recordings are crash-safe. A take is written as a fragmented MP4, so a power loss does not throw it away. The next launch repairs the file, keeps it as `guvi_YYYYMMDD_N.mp4`, and tells you the video was restored.
 
 ## Download
+
+[GuVi 1.0.0](https://github.com/Gubke/guvi/releases/tag/v1.0.0): portable zip and Windows installer.
 
 - Portable (unzip and run `guvi.exe`): https://github.com/Gubke/guvi/releases/download/v1.0.0/GuVi-1.0.0-portable.zip
 - Installer: https://github.com/Gubke/guvi/releases/download/v1.0.0/GuVi-Setup.exe
