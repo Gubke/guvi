@@ -804,7 +804,7 @@ private:
     void DrawLibrary(const EngineStatus& st);
     void DrawTile(const RecordingItem& item, float width, bool busy);
     void DrawLog();
-    void DrawModeTabs(bool locked);
+    void DrawModeTabs(bool locked, bool camera = true);
     void DrawSource(bool locked);
     void DrawVideo(const EngineStatus& st);
     void DrawAudio();
@@ -1201,10 +1201,11 @@ void App::DrawLog()
 
 // ---------- Правая панель: настройки и запись ----------
 // Строка источника: быстрый выбор Экран / Окно и переключатель веб-камеры.
-void App::DrawModeTabs(bool locked)
+void App::DrawModeTabs(bool locked, bool camera)
 {
     const float spacing = ImGui::GetStyle().ItemInnerSpacing.x;
-    const float w = (ImGui::GetContentRegionAvail().x - spacing * 2) / 3;
+    const int columns = camera ? 3 : 2;
+    const float w = (ImGui::GetContentRegionAvail().x - spacing * (columns - 1)) / columns;
     const char* labels[] = { Tr("Экран"), Tr("Окно") };
     const char* tips[] = { "Запись монитора целиком (игры в borderless/полноэкранном окне — тоже)",
                            "Запись одного окна" };
@@ -1218,6 +1219,8 @@ void App::DrawModeTabs(bool locked)
         ImGui::EndDisabled();
         HoverTip(tips[i]);
     }
+    if (!camera)
+        return;
     ImGui::SameLine(0, spacing);
     if (s_.webcam ? AccentButton("● Камера", { w, 0 }) : ImGui::Button("○ Камера", { w, 0 })) {
         s_.webcam = !s_.webcam;
@@ -1789,6 +1792,16 @@ void App::DrawRecordBlock(const EngineStatus& st, ImFont* bold)
 // ---------- Трансляция ----------
 void App::DrawStream(const EngineStatus& st)
 {
+    // Те же источник и звук, что у записи: один захват, без второго конвейера.
+    const bool busy = st.recording || Streaming(st);
+    ImGui::SeparatorText(Tr("ИСТОЧНИК"));
+    DrawModeTabs(busy, false);
+    DrawSource(busy);
+    const bool prevLock = locked_;
+    locked_ = busy;
+    DrawAudio();
+    locked_ = prevLock;
+
     ImGui::SeparatorText(Tr("ТРАНСЛЯЦИЯ"));
     const ImGuiStyle& style = ImGui::GetStyle();
     // Во время эфира поля замкнуты: применяются при следующем старте.
@@ -2013,7 +2026,7 @@ void App::UploadWidgetPreview(int slot, const UrlBitmap& bm)
 void App::DrawStreamWidgets(const EngineStatus& st)
 {
     ImGui::SeparatorText(Tr("ВИДЖЕТЫ НА ЭФИРЕ"));
-    ImGui::TextWrapped("До четырёх ссылок. Тяните картинку, угол меняет размер — как веб-камеру. На GPU, только в эфир.");
+    ImGui::TextWrapped("До восьми ссылок. Тяните картинку, угол меняет размер — как веб-камеру. На GPU, только в эфир.");
 
     const ImGuiStyle& style = ImGui::GetStyle();
     const float dpi = style.FontScaleDpi;
@@ -2188,10 +2201,13 @@ void App::DrawStreamWidgets(const EngineStatus& st)
             ImGui::PopID();
             break;
         }
-        if (!s_.widgets[i].url.empty() && placed[static_cast<size_t>(i)].bm.failed)
-            ImGui::TextColored(kWarn, "Не картинка — на эфире будет карточка с адресом");
-        else if (placed[static_cast<size_t>(i)].bm.pending)
-            ImGui::TextDisabled("Загрузка…");
+        // Кнопка «добавить» увеличивает счётчик в этом же кадре, а placed собран до неё.
+        if (i < static_cast<int>(placed.size())) {
+            if (!s_.widgets[i].url.empty() && placed[static_cast<size_t>(i)].bm.failed)
+                ImGui::TextColored(kWarn, "Не картинка — на эфире будет карточка с адресом");
+            else if (placed[static_cast<size_t>(i)].bm.pending)
+                ImGui::TextDisabled("Загрузка…");
+        }
         ImGui::PopID();
     }
 }
@@ -2446,9 +2462,9 @@ void App::DrawProductSettings()
         if (ImGui::Button(label))
             ShellExecuteW(nullptr, L"open", url, nullptr, nullptr, SW_SHOWNORMAL);
     };
-    link(Tr("Портативная сборка"), L"https://github.com/Gubke/guvi/releases/download/v1.0.1/GuVi-1.0.1-portable.zip");
+    link(Tr("Портативная сборка"), L"https://github.com/Gubke/guvi/releases/download/v1.0.2/GuVi-1.0.2-portable.zip");
     ImGui::SameLine();
-    link(Tr("Установщик"), L"https://github.com/Gubke/guvi/releases/download/v1.0.1/GuVi-Setup.exe");
+    link(Tr("Установщик"), L"https://github.com/Gubke/guvi/releases/download/v1.0.2/GuVi-Setup.exe");
     link(Tr("YouTube"), L"https://www.youtube.com/@gubke");
     ImGui::SameLine();
     link(Tr("Telegram"), L"https://t.me/negubke");

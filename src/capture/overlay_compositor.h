@@ -23,7 +23,7 @@ struct OverlaySprite {
 // в запись на диск не попадает. Загрузка в текстуру — только когда сменился seq.
 class OverlayCompositor {
 public:
-    static constexpr int kMax = 4;
+    static constexpr int kMax = 8;
 
     OverlayCompositor(ID3D11Device* device, ID3D11Texture2D* target);
     void Draw(ID3D11DeviceContext* ctx, const std::vector<OverlaySprite>& sprites);

@@ -16,10 +16,10 @@ struct UrlBitmap {
     bool failed = false;
 };
 
-// До четырёх слотов. HTTP идёт в фоне, кадр захвата это не ждёт.
+// До восьми слотов. HTTP идёт в фоне, кадр захвата это не ждёт.
 class UrlImageCache {
 public:
-    static constexpr int kSlots = 4;
+    static constexpr int kSlots = 8;
 
     UrlImageCache();
     ~UrlImageCache();

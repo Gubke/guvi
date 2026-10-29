@@ -24,11 +24,11 @@ If the power goes out mid-take, the recording is not thrown away. GuVi writes th
 
 ## Download
 
-GuVi 1.0.1 is on the [release page](https://github.com/Gubke/guvi/releases/tag/v1.0.1).
+GuVi 1.0.2 is on the [release page](https://github.com/Gubke/guvi/releases/tag/v1.0.2).
 
-[Download the portable zip](https://github.com/Gubke/guvi/releases/download/v1.0.1/GuVi-1.0.1-portable.zip) and run `guvi.exe`.
+[Download the portable zip](https://github.com/Gubke/guvi/releases/download/v1.0.2/GuVi-1.0.2-portable.zip) and run `guvi.exe`.
 
-[Download GuVi-Setup.exe](https://github.com/Gubke/guvi/releases/download/v1.0.1/GuVi-Setup.exe) if you want an installer.
+[Download GuVi-Setup.exe](https://github.com/Gubke/guvi/releases/download/v1.0.2/GuVi-Setup.exe) if you want an installer.
 
 ## Languages
 

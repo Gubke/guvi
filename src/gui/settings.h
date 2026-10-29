@@ -14,7 +14,7 @@ struct StreamWidget {
     bool operator==(const StreamWidget&) const = default;
 };
 
-inline constexpr int kMaxStreamWidgets = 4;
+inline constexpr int kMaxStreamWidgets = 8;
 
 struct GuiSettings {
     bool sourceIsWindow = false;
