@@ -8,8 +8,8 @@ A take is written as a fragmented MP4, so a power loss does not throw the record
 
 ## Download
 
-- Portable (unzip and run `guvi.exe`): https://github.com/Gubke/guvi/releases/download/v1.0.0/GuVi-1.0.0-portable.zip
-- Installer: https://github.com/Gubke/guvi/releases/download/v1.0.0/GuVi-Setup.exe
+- Portable (unzip and run `guvi.exe`): https://github.com/Gubke/guvi/releases/download/v1.0.1/GuVi-1.0.1-portable.zip
+- Installer: https://github.com/Gubke/guvi/releases/download/v1.0.1/GuVi-Setup.exe
 
 ## What it records
 

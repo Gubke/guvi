@@ -2446,9 +2446,9 @@ void App::DrawProductSettings()
         if (ImGui::Button(label))
             ShellExecuteW(nullptr, L"open", url, nullptr, nullptr, SW_SHOWNORMAL);
     };
-    link(Tr("Портативная сборка"), L"https://github.com/Gubke/guvi/releases/download/v1.0.0/GuVi-1.0.0-portable.zip");
+    link(Tr("Портативная сборка"), L"https://github.com/Gubke/guvi/releases/download/v1.0.1/GuVi-1.0.1-portable.zip");
     ImGui::SameLine();
-    link(Tr("Установщик"), L"https://github.com/Gubke/guvi/releases/download/v1.0.0/GuVi-Setup.exe");
+    link(Tr("Установщик"), L"https://github.com/Gubke/guvi/releases/download/v1.0.1/GuVi-Setup.exe");
     link(Tr("YouTube"), L"https://www.youtube.com/@gubke");
     ImGui::SameLine();
     link(Tr("Telegram"), L"https://t.me/negubke");

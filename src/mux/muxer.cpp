@@ -1,5 +1,6 @@
 #include "mux/muxer.h"
 #include "common/hr.h"
+#include "common/log.h"
 #include "common/mf_scope.h"
 
 #include <unknwn.h>
@@ -13,6 +14,7 @@
 #include <cwctype>
 #include <filesystem>
 #include <fstream>
+#include <vector>
 
 namespace {
 
@@ -27,6 +29,7 @@ winrt::com_ptr<IMFMediaType> MakeVideoType(const VideoStreamInfo& v, const std::
     MFSetAttributeSize(type.get(), MF_MT_FRAME_SIZE, v.width, v.height);
     MFSetAttributeRatio(type.get(), MF_MT_FRAME_RATE, v.fps, 1);
     MFSetAttributeRatio(type.get(), MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
+    // Annex B, как отдаёт NVENC. HVCC и длины NAL дают E_UNEXPECTED на WriteSample/Finalize.
     if (!seq.empty())
         type->SetBlob(MF_MT_MPEG_SEQUENCE_HEADER, seq.data(), static_cast<UINT32>(seq.size()));
     return type;
@@ -53,36 +56,45 @@ winrt::com_ptr<IMFMediaType> MakeAacType(const AudioStreamInfo& a)
 class MfMp4Muxer final : public IMuxer {
 public:
     MfMp4Muxer(const std::wstring& path, const StreamSetup& setup, int64_t timeOffset, bool crashSafe)
-        : offset_(timeOffset), crashSafe_(crashSafe)
+        : offset_(timeOffset), crashSafe_(crashSafe && setup.video.codec != Codec::HEVC)
     {
         const auto vt = MakeVideoType(setup.video, setup.videoSequenceHeader);
         winrt::com_ptr<IMFMediaType> at;
         if (setup.audio)
             at = MakeAacType(*setup.audio);
 
+        // FMPEG4 отвечает MF_E_INVALIDMEDIATYPE на HEVC. Обычный приёмник принимает Annex B.
+        if (setup.video.codec == Codec::HEVC)
+            LogInfo("HEVC: обычный MP4, фрагментированный контейнер этот кодек не принимает");
+
         if (crashSafe_) {
-            ThrowIfFailed(MFCreateFile(MF_ACCESSMODE_READWRITE, MF_OPENMODE_DELETE_IF_EXIST, MF_FILEFLAGS_NONE,
-                                       path.c_str(), stream_.put()),
-                          "MFCreateFile");
-            if (!OpenFragmented(vt.get(), at.get())) {
-                writer_ = nullptr;
-                stream_ = nullptr;
-                hasAudio_ = false;
+            bool opened = false;
+            try {
                 ThrowIfFailed(MFCreateFile(MF_ACCESSMODE_READWRITE, MF_OPENMODE_DELETE_IF_EXIST, MF_FILEFLAGS_NONE,
                                            path.c_str(), stream_.put()),
                               "MFCreateFile");
-                OpenFragmentedFallback(vt.get(), at.get());
+                if (!OpenFragmented(vt.get(), at.get())) {
+                    writer_ = nullptr;
+                    stream_ = nullptr;
+                    hasAudio_ = false;
+                    ThrowIfFailed(MFCreateFile(MF_ACCESSMODE_READWRITE, MF_OPENMODE_DELETE_IF_EXIST, MF_FILEFLAGS_NONE,
+                                               path.c_str(), stream_.put()),
+                                  "MFCreateFile");
+                    OpenFragmentedFallback(vt.get(), at.get());
+                }
+                if (stream_)
+                    stream_->Flush();
+                opened = true;
+            } catch (const std::exception& e) {
+                writer_ = nullptr;
+                stream_ = nullptr;
+                hasAudio_ = false;
+                LogWarn("Фрагментированный MP4 недоступен (%s), пишу обычный MP4", e.what());
             }
-            stream_->Flush();
+            if (!opened)
+                OpenClassic(path, vt.get(), at.get());
         } else {
-            winrt::com_ptr<IMFAttributes> attrs;
-            ThrowIfFailed(MFCreateAttributes(attrs.put(), 2), "MFCreateAttributes");
-            attrs->SetUINT32(MF_SINK_WRITER_DISABLE_THROTTLING, TRUE);
-            attrs->SetGUID(MF_TRANSCODE_CONTAINERTYPE, MFTranscodeContainerType_MPEG4);
-            ThrowIfFailed(MFCreateSinkWriterFromURL(path.c_str(), nullptr, attrs.get(), writer_.put()),
-                          "MFCreateSinkWriterFromURL");
-            AddStreams(vt.get(), at.get());
-            ThrowIfFailed(writer_->BeginWriting(), "IMFSinkWriter::BeginWriting");
+            OpenClassic(path, vt.get(), at.get());
         }
     }
 
@@ -105,28 +117,7 @@ public:
         if (pts < 0)
             return;
 
-        const auto size = static_cast<DWORD>(pkt.data.size());
-        winrt::com_ptr<IMFMediaBuffer> buffer;
-        ThrowIfFailed(MFCreateMemoryBuffer(size, buffer.put()), "MFCreateMemoryBuffer");
-        BYTE* dst = nullptr;
-        ThrowIfFailed(buffer->Lock(&dst, nullptr, nullptr), "IMFMediaBuffer::Lock");
-        std::memcpy(dst, pkt.data.data(), size);
-        buffer->Unlock();
-        buffer->SetCurrentLength(size);
-
-        winrt::com_ptr<IMFSample> sample;
-        ThrowIfFailed(MFCreateSample(sample.put()), "MFCreateSample");
-        sample->AddBuffer(buffer.get());
-        sample->SetSampleTime(pts);
-        sample->SetSampleDuration(pkt.duration);
-        if (pkt.keyframe)
-            sample->SetUINT32(MFSampleExtension_CleanPoint, TRUE);
-        ThrowIfFailed(writer_->WriteSample(audio ? audioStream_ : videoStream_, sample.get()),
-                      "IMFSinkWriter::WriteSample");
-        if (crashSafe_ && !audio && stream_ && pts - lastFlushPts_ >= kTimescale) {
-            stream_->Flush();
-            lastFlushPts_ = pts;
-        }
+        SubmitSample(audio, pts, pkt.duration, pkt.keyframe, pkt.data.data(), static_cast<DWORD>(pkt.data.size()));
     }
 
     void Finish() override
@@ -143,6 +134,46 @@ public:
     }
 
 private:
+    void SubmitSample(bool audio, int64_t pts, int64_t duration, bool keyframe, const uint8_t* bytes, DWORD size)
+    {
+        winrt::com_ptr<IMFMediaBuffer> buffer;
+        ThrowIfFailed(MFCreateMemoryBuffer(size, buffer.put()), "MFCreateMemoryBuffer");
+        BYTE* dst = nullptr;
+        ThrowIfFailed(buffer->Lock(&dst, nullptr, nullptr), "IMFMediaBuffer::Lock");
+        std::memcpy(dst, bytes, size);
+        buffer->Unlock();
+        buffer->SetCurrentLength(size);
+
+        winrt::com_ptr<IMFSample> sample;
+        ThrowIfFailed(MFCreateSample(sample.put()), "MFCreateSample");
+        sample->AddBuffer(buffer.get());
+        sample->SetSampleTime(pts);
+        sample->SetSampleDuration(duration);
+        if (keyframe)
+            sample->SetUINT32(MFSampleExtension_CleanPoint, TRUE);
+        ThrowIfFailed(writer_->WriteSample(audio ? audioStream_ : videoStream_, sample.get()),
+                      "IMFSinkWriter::WriteSample");
+        if (crashSafe_ && !audio && stream_ && pts - lastFlushPts_ >= kTimescale) {
+            stream_->Flush();
+            lastFlushPts_ = pts;
+        }
+    }
+
+    void OpenClassic(const std::wstring& path, IMFMediaType* video, IMFMediaType* audio)
+    {
+        writer_ = nullptr;
+        stream_ = nullptr;
+        hasAudio_ = false;
+        winrt::com_ptr<IMFAttributes> attrs;
+        ThrowIfFailed(MFCreateAttributes(attrs.put(), 2), "MFCreateAttributes");
+        attrs->SetUINT32(MF_SINK_WRITER_DISABLE_THROTTLING, TRUE);
+        attrs->SetGUID(MF_TRANSCODE_CONTAINERTYPE, MFTranscodeContainerType_MPEG4);
+        ThrowIfFailed(MFCreateSinkWriterFromURL(path.c_str(), nullptr, attrs.get(), writer_.put()),
+                      "MFCreateSinkWriterFromURL");
+        AddStreams(video, audio);
+        ThrowIfFailed(writer_->BeginWriting(), "IMFSinkWriter::BeginWriting");
+    }
+
     void AddStreams(IMFMediaType* video, IMFMediaType* audio)
     {
         // Одинаковые входной и выходной типы → Sink Writer не вставляет кодеры, пишет сэмплы как есть.

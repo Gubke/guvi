@@ -106,6 +106,9 @@ void NvencEncoder::Init(ID3D11Device* device)
         auto& c = cfg.encodeCodecConfig.hevcConfig;
         c.idrPeriod = cfg.gopLength;
         c.repeatSPSPPS = 1;
+        c.disableSPSPPS = 0;
+        c.outputAUD = 0;          // AUD в MP4 нельзя, из-за него первый кадр отвергается
+        c.chromaFormatIDC = 1;    // 4:2:0, иначе пресет может оставить 0 и кадр не кодируется
     }
 
     NV_ENC_INITIALIZE_PARAMS init{};
